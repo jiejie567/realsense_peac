@@ -67,7 +67,7 @@ void callback(const sensor_msgs::ImageConstPtr& color, const sensor_msgs::ImageC
                 depth_pic.ptr<float>(m)[n]=0;//depth filter
             float d = depth_pic.ptr<float>(m)[n];//ushort d = depth_pic.ptr<ushort>(m)[n];
             // d 可能没有值，若如此，跳过此点
-            if (d == 0)
+            if (d == 0.)
                 continue;
             // d 存在值，则向点云增加一个点
             pcl::PointXYZRGB p;
@@ -90,7 +90,7 @@ void callback(const sensor_msgs::ImageConstPtr& color, const sensor_msgs::ImageC
         }
     }
 
-    // ahc 
+    // ahc
     struct OrganizedImage3D {
     const cv::Mat_<cv::Vec3f>& cloud_peac;
     //note: ahc::PlaneFitter assumes mm as unit!!!
