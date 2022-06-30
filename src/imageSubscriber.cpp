@@ -59,12 +59,12 @@ void callback(const sensor_msgs::ImageConstPtr& color, const sensor_msgs::ImageC
     //cout<<"channels"<<depth_pic.depth()<<endl;
  
     PointCloud::Ptr cloud ( new PointCloud );
- 
+
     for (int m = 0; m < depth_pic.rows; m++){
         for (int n = 0; n < depth_pic.cols; n++){
             // 获取深度图中(m,n)处的值
-            if(depth_pic.ptr<float>(m)[n]>4096)
-                depth_pic.ptr<float>(m)[n]=0;//depth filter
+            if(depth_pic.ptr<float>(m)[n]>9000.)
+                depth_pic.ptr<float>(m)[n]=0.;//depth filter
             float d = depth_pic.ptr<float>(m)[n];//ushort d = depth_pic.ptr<ushort>(m)[n];
             // d 可能没有值，若如此，跳过此点
             if (d == 0.)
@@ -122,9 +122,9 @@ void callback(const sensor_msgs::ImageConstPtr& color, const sensor_msgs::ImageC
         }
     }
     PlaneFitter pf;
-    pf.minSupport = 3000;
-    pf.windowWidth = 20;
-    pf.windowHeight = 20;
+    pf.minSupport = 600;
+    pf.windowWidth = 12;
+    pf.windowHeight = 12;
     pf.doRefine = true;
 
     cv::Mat seg(depth_pic.rows, depth_pic.cols, CV_8UC3);

@@ -67,7 +67,7 @@ struct ParamSet {
 
 	ParamSet() : depthSigma(1.6e-6),
 		stdTol_init(5), stdTol_merge(8),
-		z_near(500), z_far(4000),
+		z_near(250), z_far(9000),
 		angle_near(MACRO_DEG2RAD(15.0)), angle_far(MACRO_DEG2RAD(90.0)),
 		similarityTh_merge(std::cos(MACRO_DEG2RAD(60.0))),
 		similarityTh_refine(std::cos(MACRO_DEG2RAD(30.0))),

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock -r 1.0 -l /home/bit-hit/下载/Dataset/L515ForPEAC.bag"/>
+    <param name="/use_sim_time" value="true" />
+
+    <node pkg="realsense_peac" type="imageSubscriber" name="peac"  output="screen" />
+</launch>
