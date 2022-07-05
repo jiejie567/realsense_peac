@@ -35,7 +35,7 @@ include_directories(include ${OpenCV_INCLUDE_DIRS})
 include_directories(include ${PCL_INCLUDE_DIRS})
 include_directories(include ${catkin_INCLUDE_DIRS})
  
-add_executable(imageSubscriber src/imageSubscriber.cpp)
+add_executable(imageSubscriber src/imageSubscriber_new.cpp)
 target_link_libraries(imageSubscriber ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${PCL_LIBRARIES} )
 
 

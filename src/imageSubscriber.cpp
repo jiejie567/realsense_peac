@@ -27,7 +27,120 @@ const double camera_cy = 254.687;
 const double camera_fx = 597.53;
 const double camera_fy = 597.795;
 const float max_use_range = 10;
- 
+
+
+void labelComponents(int row, int col){
+    float d1, d2, alpha, angle;
+    int fromIndX, fromIndY, thisIndX, thisIndY;
+    bool lineCountFlag[N_SCAN] = {false};
+
+    queueIndX[0] = row;
+    queueIndY[0] = col;
+    int queueSize = 1;
+    int queueStartInd = 0;
+    int queueEndInd = 1;
+
+    allPushedIndX[0] = row;
+    allPushedIndY[0] = col;
+    int allPushedIndSize = 1;
+
+    // 标准的BFS
+    // BFS的作用是以(row，col)为中心向外面扩散，
+    // 判断(row,col)是否是这个平面中一点
+    while(queueSize > 0){
+        fromIndX = queueIndX[queueStartInd];
+        fromIndY = queueIndY[queueStartInd];
+        --queueSize;
+        ++queueStartInd;
+        // labelCount的初始值为1，后面会递增
+        labelMat.at<int>(fromIndX, fromIndY) = labelCount;
+
+        // neighbor=[[-1,0];[0,1];[0,-1];[1,0]]
+        // 遍历点[fromIndX,fromIndY]边上的四个邻点
+        for (auto iter = neighborIterator.begin(); iter != neighborIterator.end(); ++iter){
+
+            thisIndX = fromIndX + (*iter).first;
+            thisIndY = fromIndY + (*iter).second;
+
+            if (thisIndX < 0 || thisIndX >= N_SCAN)
+                continue;
+
+            // 是个环状的图片，左右连通
+            if (thisIndY < 0)
+                thisIndY = Horizon_SCAN - 1;
+            if (thisIndY >= Horizon_SCAN)
+                thisIndY = 0;
+
+            // 如果点[thisIndX,thisIndY]已经标记过
+            // labelMat中，-1代表无效点，0代表未进行标记过，其余为其他的标记
+            // 如果当前的邻点已经标记过，则跳过该点。
+            // 如果labelMat已经标记为正整数，则已经聚类完成，不需要再次对该点聚类
+            if (labelMat.at<int>(thisIndX, thisIndY) != 0)
+                continue;
+
+            d1 = std::max(rangeMat.at<float>(fromIndX, fromIndY),
+                          rangeMat.at<float>(thisIndX, thisIndY));
+            d2 = std::min(rangeMat.at<float>(fromIndX, fromIndY),
+                          rangeMat.at<float>(thisIndX, thisIndY));
+
+            // alpha代表角度分辨率，
+            // X方向上角度分辨率是segmentAlphaX(rad)
+            // Y方向上角度分辨率是segmentAlphaY(rad)
+            if ((*iter).first == 0)
+                alpha = segmentAlphaX;
+            else
+                alpha = segmentAlphaY;
+
+            // 通过下面的公式计算这两点之间是否有平面特征
+            // atan2(y,x)的值越大，d1，d2之间的差距越小,越平坦
+            angle = atan2(d2*sin(alpha), (d1 -d2*cos(alpha)));
+
+            if (angle > segmentTheta){
+                // segmentTheta=1.0472<==>60度
+                // 如果算出角度大于60度，则假设这是个平面
+                queueIndX[queueEndInd] = thisIndX;
+                queueIndY[queueEndInd] = thisIndY;
+                ++queueSize;
+                ++queueEndInd;
+
+                labelMat.at<int>(thisIndX, thisIndY) = labelCount;
+                lineCountFlag[thisIndX] = true;
+
+                allPushedIndX[allPushedIndSize] = thisIndX;
+                allPushedIndY[allPushedIndSize] = thisIndY;
+                ++allPushedIndSize;
+            }
+        }
+    }
+
+
+    bool feasibleSegment = false;
+
+    // 如果聚类超过30个点，直接标记为一个可用聚类，labelCount需要递增
+    if (allPushedIndSize >= 30)
+        feasibleSegment = true;
+    else if (allPushedIndSize >= segmentValidPointNum){
+        // 如果聚类点数小于30大于等于5，统计竖直方向上的聚类点数
+        int lineCount = 0;
+        for (size_t i = 0; i < N_SCAN; ++i)
+            if (lineCountFlag[i] == true)
+                ++lineCount;
+
+        // 竖直方向上超过3个也将它标记为有效聚类
+        if (lineCount >= segmentValidLineNum)
+            feasibleSegment = true;
+    }
+
+    if (feasibleSegment == true){
+        ++labelCount;
+    }else{
+        for (size_t i = 0; i < allPushedIndSize; ++i){
+            // 标记为-1的是需要舍弃的聚类的点，因为他们的数量小于30个
+            labelMat.at<int>(allPushedIndX[i], allPushedIndY[i]) = -1;
+        }
+    }
+}
+
 void callback(const sensor_msgs::ImageConstPtr& color, const sensor_msgs::ImageConstPtr& depth)
 {
     //ROS_INFO("RECEIVE Image...");
@@ -57,11 +170,16 @@ void callback(const sensor_msgs::ImageConstPtr& color, const sensor_msgs::ImageC
     depth_ptr = cv_bridge::toCvCopy(depth, sensor_msgs::image_encodings::TYPE_32FC1);
     depth_pic = depth_ptr->image;
     //cout<<"channels"<<depth_pic.depth()<<endl;
- 
+
+    cv::Mat labelMat = cv::Mat(depth_pic.rows, depth_pic.cols, CV_32S, cv::Scalar::all(0));
     PointCloud::Ptr cloud ( new PointCloud );
+    uint16_t* queueIndX = new uint16_t[depth_pic.rows*depth_pic.cols];
+    uint16_t* queueIndY = new uint16_t[depth_pic.rows*depth_pic.cols];
 
     for (int m = 0; m < depth_pic.rows; m++){
         for (int n = 0; n < depth_pic.cols; n++){
+            if (labelMat.at<int>(m, n) == 0)
+                labelComponents(m, n);
             // 获取深度图中(m,n)处的值
             if(depth_pic.ptr<float>(m)[n]>9000.)
                 depth_pic.ptr<float>(m)[n]=0.;//depth filter
